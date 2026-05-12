@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import { Plus, X, ChefHat } from 'lucide-react'
-import { CATEGORIAS, INSUMOS } from '../../data/mockData'
 
-export default function RecetaForm({ receta, onSave, onCancel }) {
+export default function RecetaForm({ receta, categorias, insumos, onSave, onCancel, saving }) {
+  const firstInsumoId = insumos[0]?.id ?? 1
+  const firstCategoriaId = categorias[0]?.id ?? 1
+
   const [form, setForm] = useState({
     nombre: receta?.nombre ?? '',
-    categoria_id: receta?.categoria_id ?? 1,
+    categoria_id: receta?.categoria_id ?? firstCategoriaId,
     descripcion: receta?.descripcion ?? '',
     rendimiento_unidades: receta?.rendimiento_unidades ?? 1,
     ingredientes: receta?.ingredientes?.length
-      ? receta.ingredientes
-      : [{ insumo_id: 1, cantidad: 0 }],
+      ? receta.ingredientes.map(i => ({ insumo_id: i.insumo_id, cantidad: Number(i.cantidad) }))
+      : [{ insumo_id: firstInsumoId, cantidad: 0 }],
   })
 
   const set = (patch) => setForm(f => ({ ...f, ...patch }))
 
   const addIngrediente = () =>
-    set({ ingredientes: [...form.ingredientes, { insumo_id: 1, cantidad: 0 }] })
+    set({ ingredientes: [...form.ingredientes, { insumo_id: firstInsumoId, cantidad: 0 }] })
 
   const removeIngrediente = (idx) =>
     set({ ingredientes: form.ingredientes.filter((_, i) => i !== idx) })
@@ -31,8 +33,8 @@ export default function RecetaForm({ receta, onSave, onCancel }) {
     })
 
   const costoTotal = form.ingredientes.reduce((sum, ing) => {
-    const ins = INSUMOS.find(i => i.id === ing.insumo_id)
-    return sum + (ins ? ins.costo_unitario * ing.cantidad : 0)
+    const ins = insumos.find(i => i.id === ing.insumo_id)
+    return sum + (ins ? Number(ins.costo_unitario) * ing.cantidad : 0)
   }, 0)
 
   const costoPorUnidad = form.rendimiento_unidades > 1
@@ -45,7 +47,7 @@ export default function RecetaForm({ receta, onSave, onCancel }) {
     form.ingredientes.every(i => i.cantidad > 0)
 
   const handleSubmit = () => {
-    if (!isValid) return
+    if (!isValid || saving) return
     onSave({ ...form, id: receta?.id })
   }
 
@@ -81,7 +83,7 @@ export default function RecetaForm({ receta, onSave, onCancel }) {
             value={form.categoria_id}
             onChange={e => set({ categoria_id: parseInt(e.target.value) })}
           >
-            {CATEGORIAS.map(c => (
+            {categorias.map(c => (
               <option key={c.id} value={c.id}>{c.nombre}</option>
             ))}
           </select>
@@ -126,8 +128,8 @@ export default function RecetaForm({ receta, onSave, onCancel }) {
 
         <div className="space-y-2">
           {form.ingredientes.map((ing, idx) => {
-            const ins = INSUMOS.find(i => i.id === ing.insumo_id)
-            const costoLinea = ins ? (ins.costo_unitario * ing.cantidad).toFixed(2) : '0.00'
+            const ins = insumos.find(i => i.id === ing.insumo_id)
+            const costoLinea = ins ? (Number(ins.costo_unitario) * ing.cantidad).toFixed(2) : '0.00'
             return (
               <div
                 key={idx}
@@ -140,7 +142,7 @@ export default function RecetaForm({ receta, onSave, onCancel }) {
                   onChange={e => updateIngrediente(idx, 'insumo_id', e.target.value)}
                   aria-label="Seleccionar insumo"
                 >
-                  {INSUMOS.map(i => (
+                  {insumos.map(i => (
                     <option key={i.id} value={i.id}>{i.nombre} ({i.unidad})</option>
                   ))}
                 </select>
@@ -195,15 +197,15 @@ export default function RecetaForm({ receta, onSave, onCancel }) {
 
       {/* Actions */}
       <div className="flex gap-3 justify-end">
-        <button onClick={onCancel} className="btn-secondary">
+        <button onClick={onCancel} className="btn-secondary" disabled={saving}>
           Cancelar
         </button>
         <button
           onClick={handleSubmit}
-          disabled={!isValid}
+          disabled={!isValid || saving}
           className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {receta ? 'Guardar cambios' : 'Crear receta'}
+          {saving ? 'Guardando…' : (receta ? 'Guardar cambios' : 'Crear receta')}
         </button>
       </div>
     </div>

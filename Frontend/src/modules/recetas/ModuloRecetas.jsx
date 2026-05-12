@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Plus, ChevronDown, Pencil, Trash2, BookOpen } from 'lucide-react'
-import { RECETAS_INIT, CATEGORIAS, INSUMOS } from '../../data/mockData'
+import { useEffect, useState } from 'react'
+import { Plus, ChevronDown, Pencil, Trash2, BookOpen, Loader2 } from 'lucide-react'
+import { api } from '../../api'
 import RecetaForm from './RecetaForm'
 
 const CATEGORY_COLOR = {
@@ -10,43 +10,128 @@ const CATEGORY_COLOR = {
   4: 'bg-violet-100 text-violet-700',
 }
 
-function calcCosto(ingredientes) {
-  return ingredientes.reduce((s, i) => {
-    const ins = INSUMOS.find(x => x.id === i.insumo_id)
-    return s + (ins ? ins.costo_unitario * i.cantidad : 0)
-  }, 0)
-}
-
 export default function ModuloRecetas({ onToast }) {
-  const [recetas, setRecetas] = useState(RECETAS_INIT)
+  const [recetas, setRecetas] = useState([])
+  const [categorias, setCategorias] = useState([])
+  const [insumos, setInsumos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   const [showForm, setShowForm] = useState(false)
   const [editReceta, setEditReceta] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+  const [detalleCache, setDetalleCache] = useState({})  // { [recetaId]: ingredientes }
   const [filtro, setFiltro] = useState(0)
+
+  const cargar = async () => {
+    setLoading(true)
+    try {
+      const [recs, cats, ins] = await Promise.all([
+        api.recetas(),
+        api.categorias(),
+        api.insumos(),
+      ])
+      setRecetas(recs)
+      setCategorias(cats)
+      setInsumos(ins)
+    } catch (err) {
+      onToast(`No se pudieron cargar las recetas: ${err.message}`, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { cargar() }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const recetasFiltradas = filtro === 0
     ? recetas
     : recetas.filter(r => r.categoria_id === filtro)
 
-  const openNew = () => { setEditReceta(null); setShowForm(true); setExpandedId(null) }
-  const openEdit = (r) => { setEditReceta(r); setShowForm(true); setExpandedId(null) }
-  const closeForm = () => { setShowForm(false); setEditReceta(null) }
-
-  const handleSave = (data) => {
-    if (data.id) {
-      setRecetas(prev => prev.map(r => r.id === data.id ? { ...r, ...data } : r))
-      onToast('Receta actualizada correctamente', 'success')
-    } else {
-      const newId = Math.max(0, ...recetas.map(r => r.id)) + 1
-      setRecetas(prev => [...prev, { ...data, id: newId, activa: true }])
-      onToast('¡Receta creada exitosamente!', 'success')
+  const toggleExpanded = async (r) => {
+    if (expandedId === r.id) {
+      setExpandedId(null)
+      return
     }
-    closeForm()
+    setExpandedId(r.id)
+    if (!detalleCache[r.id]) {
+      try {
+        const det = await api.recetaDetalle(r.id)
+        setDetalleCache(c => ({ ...c, [r.id]: det.ingredientes ?? [] }))
+      } catch (err) {
+        onToast(`Error al cargar el detalle: ${err.message}`, 'error')
+      }
+    }
   }
 
-  const handleDelete = (id) => {
-    setRecetas(prev => prev.filter(r => r.id !== id))
-    onToast('Receta eliminada', 'warning')
+  const openNew = () => { setEditReceta(null); setShowForm(true); setExpandedId(null) }
+
+  const openEdit = async (r) => {
+    try {
+      const det = await api.recetaDetalle(r.id)
+      setEditReceta({
+        ...r,
+        ingredientes: (det.ingredientes ?? []).map(i => ({
+          insumo_id: i.insumo_id,
+          cantidad: Number(i.cantidad),
+        })),
+      })
+      setShowForm(true)
+      setExpandedId(null)
+    } catch (err) {
+      onToast(`No se pudo abrir la receta: ${err.message}`, 'error')
+    }
+  }
+
+  const closeForm = () => { setShowForm(false); setEditReceta(null) }
+
+  const handleSave = async (data) => {
+    setSaving(true)
+    try {
+      const payload = {
+        nombre: data.nombre,
+        categoria_id: data.categoria_id,
+        descripcion: data.descripcion || null,
+        rendimiento_unidades: data.rendimiento_unidades,
+        ingredientes: data.ingredientes.map(i => ({
+          insumo_id: i.insumo_id,
+          cantidad: i.cantidad,
+        })),
+      }
+      if (data.id) {
+        await api.editarReceta(data.id, payload)
+        onToast('Receta actualizada correctamente', 'success')
+        setDetalleCache(c => { const n = { ...c }; delete n[data.id]; return n })
+      } else {
+        await api.crearReceta(payload)
+        onToast('¡Receta creada exitosamente!', 'success')
+      }
+      closeForm()
+      await cargar()
+    } catch (err) {
+      onToast(`Error al guardar: ${err.message}`, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('¿Eliminar esta receta? Se desactivará del catálogo.')) return
+    try {
+      await api.borrarReceta(id)
+      onToast('Receta eliminada', 'warning')
+      setRecetas(prev => prev.filter(r => r.id !== id))
+    } catch (err) {
+      onToast(`Error al eliminar: ${err.message}`, 'error')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32 text-amber-500">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" aria-hidden />
+        Cargando recetas…
+      </div>
+    )
   }
 
   return (
@@ -67,7 +152,7 @@ export default function ModuloRecetas({ onToast }) {
 
       {/* Category filter */}
       <div className="flex gap-2 mb-5 flex-wrap" role="group" aria-label="Filtrar por categoría">
-        {[{ id: 0, nombre: 'Todas' }, ...CATEGORIAS].map(c => (
+        {[{ id: 0, nombre: 'Todas' }, ...categorias].map(c => (
           <button
             key={c.id}
             onClick={() => setFiltro(c.id)}
@@ -86,7 +171,14 @@ export default function ModuloRecetas({ onToast }) {
 
       {/* Inline form */}
       {showForm && (
-        <RecetaForm receta={editReceta} onSave={handleSave} onCancel={closeForm} />
+        <RecetaForm
+          receta={editReceta}
+          categorias={categorias}
+          insumos={insumos}
+          saving={saving}
+          onSave={handleSave}
+          onCancel={closeForm}
+        />
       )}
 
       {/* Recipe list */}
@@ -103,10 +195,10 @@ export default function ModuloRecetas({ onToast }) {
       ) : (
         <div className="space-y-3">
           {recetasFiltradas.map(r => {
-            const cat = CATEGORIAS.find(c => c.id === r.categoria_id)
-            const costo = calcCosto(r.ingredientes)
+            const costo = Number(r.costo_total ?? 0)
             const expanded = expandedId === r.id
             const colorClass = CATEGORY_COLOR[r.categoria_id] ?? 'bg-amber-100 text-amber-700'
+            const ingredientes = detalleCache[r.id] ?? []
 
             return (
               <div key={r.id} className="card overflow-hidden hover:shadow-md transition-shadow duration-200">
@@ -114,7 +206,7 @@ export default function ModuloRecetas({ onToast }) {
                 <button
                   className="w-full flex items-center justify-between px-5 py-4 cursor-pointer
                              hover:bg-amber-50/70 transition-colors duration-150 border-0 bg-transparent text-left"
-                  onClick={() => setExpandedId(expanded ? null : r.id)}
+                  onClick={() => toggleExpanded(r)}
                   aria-expanded={expanded}
                 >
                   <div className="flex items-center gap-4">
@@ -126,7 +218,7 @@ export default function ModuloRecetas({ onToast }) {
                         {r.nombre}
                       </h3>
                       <p className="text-xs text-amber-500 mt-0.5">
-                        {cat?.nombre} · {r.rendimiento_unidades} unidades · {r.ingredientes.length} ingredientes
+                        {r.categoria_nombre} · {r.rendimiento_unidades} unidades
                       </p>
                     </div>
                   </div>
@@ -135,7 +227,7 @@ export default function ModuloRecetas({ onToast }) {
                     <div className="text-right">
                       <p className="font-bold text-amber-800 tabular-nums">Q {costo.toFixed(2)}</p>
                       <p className="text-[11px] text-amber-400 tabular-nums">
-                        Q {(costo / r.rendimiento_unidades).toFixed(2)} /ud.
+                        Q {(costo / Math.max(r.rendimiento_unidades, 1)).toFixed(2)} /ud.
                       </p>
                     </div>
                     <ChevronDown
@@ -153,44 +245,47 @@ export default function ModuloRecetas({ onToast }) {
                       <p className="text-sm text-amber-500 italic mb-4">{r.descripcion}</p>
                     )}
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm" role="table">
-                        <thead>
-                          <tr className="border-b-2 border-amber-100">
-                            {['Insumo', 'Cantidad', 'Costo unit.', 'Subtotal'].map((h, i) => (
-                              <th
-                                key={h}
-                                scope="col"
-                                className={`py-2 text-[11px] font-bold text-amber-500 uppercase tracking-widest
-                                            ${i === 0 ? 'text-left' : 'text-right'}`}
-                              >
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {r.ingredientes.map((ing, i) => {
-                            const ins = INSUMOS.find(x => x.id === ing.insumo_id)
-                            const subtotal = ins ? ins.costo_unitario * ing.cantidad : 0
-                            return (
+                    {ingredientes.length === 0 ? (
+                      <p className="text-sm text-amber-400 py-4 text-center">
+                        <Loader2 className="w-4 h-4 animate-spin inline mr-1" aria-hidden />
+                        Cargando ingredientes…
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm" role="table">
+                          <thead>
+                            <tr className="border-b-2 border-amber-100">
+                              {['Insumo', 'Cantidad', 'Costo unit.', 'Subtotal'].map((h, i) => (
+                                <th
+                                  key={h}
+                                  scope="col"
+                                  className={`py-2 text-[11px] font-bold text-amber-500 uppercase tracking-widest
+                                              ${i === 0 ? 'text-left' : 'text-right'}`}
+                                >
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ingredientes.map((ing, i) => (
                               <tr key={i} className="border-b border-amber-50 last:border-0">
-                                <td className="py-2.5 text-amber-900 font-medium">{ins?.nombre ?? '?'}</td>
+                                <td className="py-2.5 text-amber-900 font-medium">{ing.insumo_nombre}</td>
                                 <td className="py-2.5 text-right text-amber-700 tabular-nums">
-                                  {ing.cantidad} {ins?.unidad}
+                                  {Number(ing.cantidad)} {ing.unidad}
                                 </td>
                                 <td className="py-2.5 text-right text-amber-500 tabular-nums">
-                                  Q {ins?.costo_unitario.toFixed(2)}
+                                  Q {Number(ing.costo_unitario).toFixed(2)}
                                 </td>
                                 <td className="py-2.5 text-right font-semibold text-amber-800 tabular-nums">
-                                  Q {subtotal.toFixed(2)}
+                                  Q {Number(ing.costo_ingrediente).toFixed(2)}
                                 </td>
                               </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
                     {/* Row actions */}
                     <div className="flex gap-2 mt-4 justify-end">

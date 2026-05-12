@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Search, ShoppingCart, Wheat, Cookie, Cake, Star,
-  Minus, Plus, X, CheckCircle,
+  Minus, Plus, X, CheckCircle, Loader2,
 } from 'lucide-react'
-import { PRODUCTOS_INIT, CATEGORIAS } from '../../data/mockData'
+import { api } from '../../api'
 
 const CATEGORY_ICON = { 1: Wheat, 2: Cookie, 3: Cake, 4: Star }
 const CATEGORY_COLOR = {
@@ -76,8 +76,12 @@ function VentaCompletada({ venta, onNueva }) {
   )
 }
 
-export default function ModuloPOS({ onToast }) {
-  const [productos, setProductos] = useState(PRODUCTOS_INIT)
+export default function ModuloPOS({ onToast, user }) {
+  const [productos, setProductos] = useState([])
+  const [categorias, setCategorias] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [procesando, setProcesando] = useState(false)
+
   const [carrito, setCarrito] = useState([])
   const [buscar, setBuscar] = useState('')
   const [catFiltro, setCatFiltro] = useState(0)
@@ -85,11 +89,28 @@ export default function ModuloPOS({ onToast }) {
   const [showCobrar, setShowCobrar] = useState(false)
   const [ventaCompletada, setVentaCompletada] = useState(null)
 
+  const cargarProductos = async () => {
+    try {
+      const [prods, cats] = await Promise.all([
+        api.productos({ soloDisponibles: false }),
+        api.categorias(),
+      ])
+      setProductos(prods.map(p => ({ ...p, precio_venta: Number(p.precio_venta) })))
+      setCategorias(cats)
+    } catch (err) {
+      onToast(`Error al cargar productos: ${err.message}`, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { cargarProductos() }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
   const productosFiltrados = productos.filter(p => {
     if (p.stock_actual <= 0) return false
     if (catFiltro !== 0 && p.categoria_id !== catFiltro) return false
     const q = buscar.toLowerCase()
-    return p.nombre.toLowerCase().includes(q) || p.codigo_barras.includes(buscar)
+    return p.nombre.toLowerCase().includes(q) || (p.codigo_barras ?? '').includes(buscar)
   })
 
   const agregarAlCarrito = (producto) => {
@@ -137,22 +158,49 @@ export default function ModuloPOS({ onToast }) {
   const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
   const totalArticulos = carrito.reduce((s, i) => s + i.cantidad, 0)
 
-  const confirmarVenta = () => {
+  const confirmarVenta = async () => {
     const monto = parseFloat(montoRecibido)
     if (isNaN(monto) || monto < total) {
       onToast(`Monto insuficiente. Total: Q ${total.toFixed(2)}`, 'error')
       return
     }
-    const cambio = monto - total
-    setProductos(prev => prev.map(p => {
-      const item = carrito.find(i => i.producto_id === p.id)
-      return item ? { ...p, stock_actual: p.stock_actual - item.cantidad } : p
-    }))
-    setVentaCompletada({ items: carrito, total, monto, cambio, fecha: new Date() })
-    setCarrito([])
-    setMontoRecibido('')
-    setShowCobrar(false)
-    onToast('¡Venta registrada exitosamente!', 'success')
+    if (!user?.id) {
+      onToast('Sesión inválida. Vuelve a iniciar sesión.', 'error')
+      return
+    }
+    setProcesando(true)
+    try {
+      const resp = await api.registrarVenta({
+        usuario_id: user.id,
+        items: carrito.map(i => ({ producto_id: i.producto_id, cantidad: i.cantidad })),
+        monto_recibido: monto,
+      })
+      setVentaCompletada({
+        items: carrito,
+        total: Number(resp.total),
+        monto,
+        cambio: Number(resp.cambio),
+        fecha: new Date(),
+      })
+      setCarrito([])
+      setMontoRecibido('')
+      setShowCobrar(false)
+      onToast('¡Venta registrada exitosamente!', 'success')
+      await cargarProductos()
+    } catch (err) {
+      onToast(`Error al registrar venta: ${err.message}`, 'error')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32 text-amber-500">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" aria-hidden />
+        Cargando productos…
+      </div>
+    )
   }
 
   if (ventaCompletada) {
@@ -191,7 +239,7 @@ export default function ModuloPOS({ onToast }) {
 
           {/* Category chips */}
           <div className="flex gap-2 mb-4 flex-wrap" role="group" aria-label="Filtrar por categoría">
-            {[{ id: 0, nombre: 'Todos' }, ...CATEGORIAS].map(c => (
+            {[{ id: 0, nombre: 'Todos' }, ...categorias].map(c => (
               <button
                 key={c.id}
                 onClick={() => setCatFiltro(c.id)}
@@ -373,15 +421,16 @@ export default function ModuloPOS({ onToast }) {
                     <button
                       onClick={() => setShowCobrar(false)}
                       className="btn-secondary flex-1"
+                      disabled={procesando}
                     >
                       Atrás
                     </button>
                     <button
                       onClick={confirmarVenta}
-                      className="btn-success flex-[2]"
-                      disabled={!cambioPreview}
+                      className="btn-success flex-[2] disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!cambioPreview || procesando}
                     >
-                      Confirmar venta
+                      {procesando ? 'Procesando…' : 'Confirmar venta'}
                     </button>
                   </div>
                 </div>

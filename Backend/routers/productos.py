@@ -12,8 +12,10 @@ def listar_productos(
 ):
     query = """
         SELECT p.id, p.nombre, p.precio_venta, p.stock_actual,
-               p.codigo_barras, p.imagen_url, p.activo
+               p.codigo_barras, p.imagen_url, p.activo,
+               r.categoria_id AS categoria_id
         FROM productos p
+        LEFT JOIN recetas r ON r.id = p.receta_id
         WHERE p.activo = TRUE
     """
     params: list = []
