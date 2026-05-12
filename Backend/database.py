@@ -3,53 +3,45 @@ SIG-BAKERY: Capa de acceso a datos con pool de conexiones PostgreSQL.
 """
 import os
 from contextlib import contextmanager
-from typing import Optional
-from psycopg2.pool import ThreadedConnectionPool
-from psycopg2.extras import RealDictCursor
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 from dotenv import load_dotenv
 
 load_dotenv()
 
-_pool: Optional[ThreadedConnectionPool] = None
+_pool: ConnectionPool | None = None
 
 
-def _get_pool() -> ThreadedConnectionPool:
+def _build_conninfo() -> str:
+    """Construye el DSN de conexión a partir de variables de entorno."""
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return database_url
+    host = os.getenv("DB_HOST", "localhost")
+    port = os.getenv("DB_PORT", "5432")
+    dbname = os.getenv("DB_NAME", "sig_bakery")
+    user = os.getenv("DB_USER", "postgres")
+    password = os.getenv("DB_PASSWORD", "postgres")
+    return f"host={host} port={port} dbname={dbname} user={user} password={password}"
+
+
+def _get_pool() -> ConnectionPool:
     global _pool
     if _pool is None:
-        database_url = os.getenv("DATABASE_URL")
-        if database_url:
-            _pool = ThreadedConnectionPool(
-                minconn=1,
-                maxconn=10,
-                dsn=database_url,
-                cursor_factory=RealDictCursor,
-            )
-        else:
-            _pool = ThreadedConnectionPool(
-                minconn=1,
-                maxconn=10,
-                host=os.getenv("DB_HOST", "localhost"),
-                port=int(os.getenv("DB_PORT", "5432")),
-                database=os.getenv("DB_NAME", "sig_bakery"),
-                user=os.getenv("DB_USER", "postgres"),
-                password=os.getenv("DB_PASSWORD", "postgres"),
-                cursor_factory=RealDictCursor,
-            )
+        _pool = ConnectionPool(
+            conninfo=_build_conninfo(),
+            min_size=1,
+            max_size=10,
+            kwargs={"row_factory": dict_row},
+        )
     return _pool
 
 
 @contextmanager
 def get_connection():
     """Contexto que entrega una conexión del pool y la devuelve al finalizar."""
-    pool = _get_pool()
-    conn = pool.getconn()
-    try:
+    with _get_pool().connection() as conn:
         yield conn
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        pool.putconn(conn)
 
 
 def execute_query(query: str, params: tuple = None, fetch: bool = True):
