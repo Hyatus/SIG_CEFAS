@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChefHat, LogIn, Eye, EyeOff } from 'lucide-react'
+import Footer from '../../components/Footer'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -155,6 +156,8 @@ export default function LoginPage({ onLogin }) {
             ))}
           </div>
         </div>
+
+        <Footer variant="login" />
 
       </div>
     </div>

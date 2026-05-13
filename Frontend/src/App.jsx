@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { Menu, ChefHat } from 'lucide-react'
 import Sidebar from './components/Sidebar'
 import Toast from './components/Toast'
+import Footer from './components/Footer'
 import ModuloPOS from './modules/pos/ModuloPOS'
 import ModuloRecetas from './modules/recetas/ModuloRecetas'
 import LoginPage from './modules/login/LoginPage'
@@ -90,6 +91,7 @@ export default function App() {
               ? <ModuloPOS onToast={showToast} user={user} />
               : <ModuloRecetas onToast={showToast} />
             }
+            <Footer />
           </div>
         </main>
       </div>
