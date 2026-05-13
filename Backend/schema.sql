@@ -125,28 +125,10 @@ CREATE TABLE venta_detalle (
 
 CREATE INDEX idx_venta_detalle_venta ON venta_detalle (venta_id);
 
--- ============================================================
--- TRIGGER: descontar stock al registrar una venta
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_descontar_stock_venta()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE productos
-    SET stock_actual = stock_actual - NEW.cantidad
-    WHERE id = NEW.producto_id;
-
-    IF (SELECT stock_actual FROM productos WHERE id = NEW.producto_id) < 0 THEN
-        RAISE EXCEPTION 'Stock insuficiente para el producto ID %', NEW.producto_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_descontar_stock_venta
-AFTER INSERT ON venta_detalle
-FOR EACH ROW EXECUTE FUNCTION fn_descontar_stock_venta();
+-- NOTA: el descuento de stock se hace explícitamente en
+-- Backend/routers/ventas.py (UPDATE con RETURNING dentro de la misma
+-- transacción que el INSERT en venta_detalle). El CHECK constraint
+-- stock_actual >= 0 de la tabla productos garantiza la integridad.
 
 -- ============================================================
 -- FUNCIÓN: calcular costo total de una receta

@@ -1,8 +1,8 @@
 import { ShoppingCart, BookOpen, ChefHat, LogOut, X } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { id: 'pos',     label: 'Punto de Venta', icon: ShoppingCart, desc: 'CU-01' },
-  { id: 'recetas', label: 'Recetario',       icon: BookOpen,     desc: 'CU-05' },
+  { id: 'pos',     label: 'Punto de Venta', icon: ShoppingCart, desc: '' },
+  { id: 'recetas', label: 'Recetario',       icon: BookOpen,     desc: '' },
 ]
 
 const ROLE_LABEL = {
