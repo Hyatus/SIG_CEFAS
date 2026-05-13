@@ -137,14 +137,14 @@ export default function ModuloRecetas({ onToast }) {
   return (
     <div>
       {/* Page header */}
-      <div className="flex justify-between items-start mb-5">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-5">
         <div>
-          <h1 className="font-heading text-2xl font-bold text-amber-900">Recetario digital</h1>
-          <p className="text-sm text-amber-500 mt-0.5">
+          <h1 className="font-heading text-xl sm:text-2xl font-bold text-amber-900">Recetario digital</h1>
+          <p className="text-xs sm:text-sm text-amber-500 mt-0.5">
             {recetas.length} receta{recetas.length !== 1 ? 's' : ''} registrada{recetas.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={openNew} className="btn-primary flex items-center gap-2">
+        <button onClick={openNew} className="btn-primary flex items-center justify-center gap-2 self-stretch sm:self-auto">
           <Plus className="w-4 h-4" aria-hidden />
           Nueva receta
         </button>
@@ -204,35 +204,35 @@ export default function ModuloRecetas({ onToast }) {
               <div key={r.id} className="card overflow-hidden hover:shadow-md transition-shadow duration-200">
                 {/* Recipe row */}
                 <button
-                  className="w-full flex items-center justify-between px-5 py-4 cursor-pointer
+                  className="w-full flex items-center justify-between gap-3 px-3 sm:px-5 py-3 sm:py-4 cursor-pointer
                              hover:bg-amber-50/70 transition-colors duration-150 border-0 bg-transparent text-left"
                   onClick={() => toggleExpanded(r)}
                   aria-expanded={expanded}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                    <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
                       <BookOpen style={{ width: 19, height: 19 }} aria-hidden />
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-amber-900 text-[15px] leading-snug">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-amber-900 text-sm sm:text-[15px] leading-snug truncate">
                         {r.nombre}
                       </h3>
-                      <p className="text-xs text-amber-500 mt-0.5">
+                      <p className="text-xs text-amber-500 mt-0.5 truncate">
                         {r.categoria_nombre} · {r.rendimiento_unidades} unidades
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+                  <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                     <div className="text-right">
-                      <p className="font-bold text-amber-800 tabular-nums">Q {costo.toFixed(2)}</p>
-                      <p className="text-[11px] text-amber-400 tabular-nums">
+                      <p className="font-bold text-amber-800 tabular-nums text-sm sm:text-base">Q {costo.toFixed(2)}</p>
+                      <p className="text-[10px] sm:text-[11px] text-amber-400 tabular-nums">
                         Q {(costo / Math.max(r.rendimiento_unidades, 1)).toFixed(2)} /ud.
                       </p>
                     </div>
                     <ChevronDown
                       style={{ width: 17, height: 17 }}
-                      className={`text-amber-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+                      className={`text-amber-400 transition-transform duration-200 flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
                       aria-hidden
                     />
                   </div>
@@ -240,7 +240,7 @@ export default function ModuloRecetas({ onToast }) {
 
                 {/* Expanded: ingredient table + actions */}
                 {expanded && (
-                  <div className="border-t border-amber-100 px-5 pb-5 pt-4">
+                  <div className="border-t border-amber-100 px-3 sm:px-5 pb-4 sm:pb-5 pt-4">
                     {r.descripcion && (
                       <p className="text-sm text-amber-500 italic mb-4">{r.descripcion}</p>
                     )}

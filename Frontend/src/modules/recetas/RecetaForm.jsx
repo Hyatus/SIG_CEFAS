@@ -52,19 +52,19 @@ export default function RecetaForm({ receta, categorias, insumos, onSave, onCanc
   }
 
   return (
-    <div className="card p-6 mb-5 shadow-md border-amber-200">
+    <div className="card p-4 sm:p-6 mb-5 shadow-md border-amber-200">
       {/* Form header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center">
+      <div className="flex items-center gap-3 mb-5 sm:mb-6">
+        <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
           <ChefHat className="w-5 h-5 text-amber-700" aria-hidden />
         </div>
-        <h3 className="font-heading text-lg font-bold text-amber-900">
+        <h3 className="font-heading text-base sm:text-lg font-bold text-amber-900">
           {receta ? 'Editar receta' : 'Nueva receta'}
         </h3>
       </div>
 
       {/* Basic info */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
           <label className="label" htmlFor="rf-nombre">Nombre de la receta</label>
           <input
@@ -90,7 +90,7 @@ export default function RecetaForm({ receta, categorias, insumos, onSave, onCanc
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         <div>
           <label className="label" htmlFor="rf-desc">Descripción</label>
           <input
@@ -107,6 +107,7 @@ export default function RecetaForm({ receta, categorias, insumos, onSave, onCanc
             id="rf-rend"
             className="input-field"
             type="number"
+            inputMode="numeric"
             min="1"
             value={form.rendimiento_unidades}
             onChange={e => set({ rendimiento_unidades: parseInt(e.target.value) || 1 })}
@@ -126,18 +127,18 @@ export default function RecetaForm({ receta, categorias, insumos, onSave, onCanc
           </button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3 sm:space-y-2">
           {form.ingredientes.map((ing, idx) => {
             const ins = insumos.find(i => i.id === ing.insumo_id)
             const costoLinea = ins ? (Number(ins.costo_unitario) * ing.cantidad).toFixed(2) : '0.00'
             return (
               <div
                 key={idx}
-                className="grid items-center gap-2"
+                className="flex flex-col sm:grid sm:items-center gap-2 pb-3 sm:pb-0 border-b border-amber-50 sm:border-0 last:border-0"
                 style={{ gridTemplateColumns: '1fr 130px 70px 36px' }}
               >
                 <select
-                  className="input-field py-2 text-sm"
+                  className="input-field py-2 text-sm w-full"
                   value={ing.insumo_id}
                   onChange={e => updateIngrediente(idx, 'insumo_id', e.target.value)}
                   aria-label="Seleccionar insumo"
@@ -147,31 +148,35 @@ export default function RecetaForm({ receta, categorias, insumos, onSave, onCanc
                   ))}
                 </select>
 
-                <input
-                  className="input-field py-2 text-sm text-right tabular-nums"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={ing.cantidad || ''}
-                  onChange={e => updateIngrediente(idx, 'cantidad', e.target.value)}
-                  placeholder="Cant."
-                  aria-label="Cantidad"
-                />
+                {/* En móvil: cantidad + costo + eliminar en una fila bajo el select */}
+                <div className="flex items-center gap-2 sm:contents">
+                  <input
+                    className="input-field py-2 text-sm text-right tabular-nums flex-1 sm:flex-none"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={ing.cantidad || ''}
+                    onChange={e => updateIngrediente(idx, 'cantidad', e.target.value)}
+                    placeholder="Cant."
+                    aria-label="Cantidad"
+                  />
 
-                <span className="text-xs text-amber-600 text-right font-semibold tabular-nums pr-1">
-                  Q {costoLinea}
-                </span>
+                  <span className="text-xs text-amber-600 text-right font-semibold tabular-nums pr-1 min-w-[60px] sm:min-w-0">
+                    Q {costoLinea}
+                  </span>
 
-                <button
-                  onClick={() => removeIngrediente(idx)}
-                  disabled={form.ingredientes.length === 1}
-                  aria-label="Eliminar ingrediente"
-                  className="w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 text-red-500
-                             flex items-center justify-center transition-colors cursor-pointer border-0
-                             disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                  <button
+                    onClick={() => removeIngrediente(idx)}
+                    disabled={form.ingredientes.length === 1}
+                    aria-label="Eliminar ingrediente"
+                    className="w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 text-red-500
+                               flex items-center justify-center transition-colors cursor-pointer border-0
+                               disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )
           })}

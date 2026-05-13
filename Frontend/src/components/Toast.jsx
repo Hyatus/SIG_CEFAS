@@ -19,8 +19,9 @@ export default function Toast({ message, type = 'success', onClose }) {
     <div
       role="alert"
       aria-live="polite"
-      className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3.5 rounded-2xl
-                  shadow-2xl max-w-sm animate-slide-in ${cls}`}
+      className={`fixed top-3 inset-x-3 sm:top-5 sm:right-5 sm:left-auto sm:inset-x-auto z-50
+                  flex items-center gap-3 px-4 py-3.5 rounded-2xl
+                  shadow-2xl sm:max-w-sm animate-slide-in ${cls}`}
     >
       <Icon className="w-5 h-5 flex-shrink-0" aria-hidden />
       <span className="text-sm font-semibold flex-1 leading-tight">{message}</span>

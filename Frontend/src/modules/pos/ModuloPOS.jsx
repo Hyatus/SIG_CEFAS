@@ -27,26 +27,26 @@ function ProductIcon({ categoriaId, size = 'md' }) {
 
 function VentaCompletada({ venta, onNueva }) {
   return (
-    <div className="flex items-center justify-center min-h-[72vh]">
-      <div className="card p-10 max-w-md w-full text-center shadow-md">
-        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
-          <CheckCircle className="w-10 h-10 text-emerald-600" />
+    <div className="flex items-center justify-center min-h-[60vh] sm:min-h-[72vh] px-1">
+      <div className="card p-6 sm:p-10 max-w-md w-full text-center shadow-md">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-5">
+          <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" />
         </div>
-        <h2 className="font-heading text-2xl font-bold text-emerald-800 mb-1">
+        <h2 className="font-heading text-xl sm:text-2xl font-bold text-emerald-800 mb-1">
           Venta completada
         </h2>
-        <p className="text-sm text-emerald-600 mb-6">
+        <p className="text-sm text-emerald-600 mb-5 sm:mb-6">
           {venta.fecha.toLocaleString('es-GT')}
         </p>
 
         <div className="border-t border-dashed border-amber-200 pt-4 space-y-2 text-left mb-5">
           {venta.items.map((item, i) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span className="text-amber-800">
+            <div key={i} className="flex justify-between text-sm gap-3">
+              <span className="text-amber-800 min-w-0 break-words">
                 {item.nombre}
                 <span className="text-amber-400 ml-1">×{item.cantidad}</span>
               </span>
-              <span className="font-semibold text-amber-900">
+              <span className="font-semibold text-amber-900 flex-shrink-0 tabular-nums">
                 Q {(item.precio * item.cantidad).toFixed(2)}
               </span>
             </div>
@@ -56,19 +56,19 @@ function VentaCompletada({ venta, onNueva }) {
         <div className="border-t-2 border-emerald-200 pt-4 space-y-2">
           <div className="flex justify-between text-lg font-bold text-amber-900">
             <span>Total</span>
-            <span>Q {venta.total.toFixed(2)}</span>
+            <span className="tabular-nums">Q {venta.total.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm text-amber-500">
             <span>Recibido</span>
-            <span>Q {venta.monto.toFixed(2)}</span>
+            <span className="tabular-nums">Q {venta.monto.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-xl font-bold text-emerald-700">
             <span>Cambio</span>
-            <span>Q {venta.cambio.toFixed(2)}</span>
+            <span className="tabular-nums">Q {venta.cambio.toFixed(2)}</span>
           </div>
         </div>
 
-        <button onClick={onNueva} className="btn-primary w-full mt-7 py-3 text-base">
+        <button onClick={onNueva} className="btn-primary w-full mt-6 sm:mt-7 py-3 text-base">
           Nueva venta
         </button>
       </div>
@@ -88,6 +88,7 @@ export default function ModuloPOS({ onToast, user }) {
   const [montoRecibido, setMontoRecibido] = useState('')
   const [showCobrar, setShowCobrar] = useState(false)
   const [ventaCompletada, setVentaCompletada] = useState(null)
+  const [cartOpen, setCartOpen] = useState(false)
 
   const cargarProductos = async () => {
     try {
@@ -158,6 +159,16 @@ export default function ModuloPOS({ onToast, user }) {
   const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
   const totalArticulos = carrito.reduce((s, i) => s + i.cantidad, 0)
 
+  // Bloquear scroll del body cuando el carrito-sheet móvil está abierto
+  useEffect(() => {
+    if (cartOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [cartOpen])
+
   const confirmarVenta = async () => {
     const monto = parseFloat(montoRecibido)
     if (isNaN(monto) || monto < total) {
@@ -185,6 +196,7 @@ export default function ModuloPOS({ onToast, user }) {
       setCarrito([])
       setMontoRecibido('')
       setShowCobrar(false)
+      setCartOpen(false)
       onToast('¡Venta registrada exitosamente!', 'success')
       await cargarProductos()
     } catch (err) {
@@ -211,15 +223,176 @@ export default function ModuloPOS({ onToast, user }) {
     ? (parseFloat(montoRecibido) - total).toFixed(2)
     : null
 
+  /* ---------- Bloque carrito reutilizado: side panel en lg+, sheet en móvil ---------- */
+  const cartContent = (
+    <>
+      <div className="px-4 sm:px-5 py-4 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+        <div className="min-w-0">
+          <h2 className="font-heading font-bold text-amber-900">Ticket de venta</h2>
+          <p className="text-xs text-amber-400 mt-0.5">
+            {totalArticulos === 0
+              ? 'Sin productos'
+              : `${totalArticulos} artículo${totalArticulos !== 1 ? 's' : ''}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
+            <ShoppingCart className="w-4 h-4 text-amber-700" aria-hidden />
+          </div>
+          {/* Cerrar en móvil */}
+          <button
+            onClick={() => setCartOpen(false)}
+            aria-label="Cerrar ticket"
+            className="lg:hidden w-9 h-9 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-700
+                       flex items-center justify-center transition-colors cursor-pointer border-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3" aria-label="Productos en el carrito">
+        {carrito.length === 0 ? (
+          <div className="py-12 text-center">
+            <ShoppingCart className="w-10 h-10 mx-auto mb-3 text-amber-200" aria-hidden />
+            <p className="text-sm text-amber-300 font-medium">
+              Selecciona productos del catálogo
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {carrito.map(item => (
+              <div
+                key={item.producto_id}
+                className="flex items-center gap-2 sm:gap-2.5 py-2.5 border-b border-amber-50 last:border-0"
+              >
+                <ProductIcon categoriaId={item.categoria_id} size="sm" />
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-900 truncate leading-tight">
+                    {item.nombre}
+                  </p>
+                  <p className="text-xs text-amber-400">Q {item.precio.toFixed(2)} c/u</p>
+                </div>
+
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => actualizarCantidad(item.producto_id, -1)}
+                    aria-label="Disminuir cantidad"
+                    className="w-7 h-7 sm:w-6 sm:h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700
+                               flex items-center justify-center transition-colors cursor-pointer border-0"
+                  >
+                    <Minus style={{ width: 12, height: 12 }} />
+                  </button>
+                  <span className="text-sm font-bold text-amber-900 w-6 text-center tabular-nums">
+                    {item.cantidad}
+                  </span>
+                  <button
+                    onClick={() => actualizarCantidad(item.producto_id, 1)}
+                    aria-label="Aumentar cantidad"
+                    className="w-7 h-7 sm:w-6 sm:h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700
+                               flex items-center justify-center transition-colors cursor-pointer border-0"
+                  >
+                    <Plus style={{ width: 12, height: 12 }} />
+                  </button>
+                </div>
+
+                <span className="text-sm font-bold text-amber-800 w-[54px] text-right tabular-nums flex-shrink-0">
+                  Q {(item.precio * item.cantidad).toFixed(2)}
+                </span>
+
+                <button
+                  onClick={() => eliminarDelCarrito(item.producto_id)}
+                  aria-label={`Eliminar ${item.nombre}`}
+                  className="w-7 h-7 sm:w-6 sm:h-6 rounded-lg text-amber-300 hover:bg-red-50 hover:text-red-500
+                             flex items-center justify-center transition-all cursor-pointer border-0 flex-shrink-0"
+                >
+                  <X style={{ width: 13, height: 13 }} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-amber-100 bg-amber-50 px-4 sm:px-5 py-4">
+        <div className="flex justify-between items-baseline mb-4">
+          <span className="font-heading font-bold text-amber-900 text-lg">Total</span>
+          <span className="font-heading font-bold text-amber-800 text-2xl tabular-nums">
+            Q {total.toFixed(2)}
+          </span>
+        </div>
+
+        {showCobrar ? (
+          <div className="space-y-3">
+            <div>
+              <label className="label" htmlFor="monto-recibido">Efectivo recibido</label>
+              <input
+                id="monto-recibido"
+                type="number"
+                inputMode="decimal"
+                value={montoRecibido}
+                onChange={e => setMontoRecibido(e.target.value)}
+                placeholder="Q 0.00"
+                autoFocus
+                className="input-field text-right text-lg font-bold tabular-nums"
+                min={total}
+                step="0.01"
+              />
+              {cambioPreview && (
+                <p className="text-right text-sm text-emerald-600 font-bold mt-1.5 tabular-nums">
+                  Cambio: Q {cambioPreview}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCobrar(false)}
+                className="btn-secondary flex-1"
+                disabled={procesando}
+              >
+                Atrás
+              </button>
+              <button
+                onClick={confirmarVenta}
+                className="btn-success flex-[2] disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!cambioPreview || procesando}
+              >
+                {procesando ? 'Procesando…' : 'Confirmar venta'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCarrito([])}
+              disabled={carrito.length === 0}
+              className="btn-danger flex-1 disabled:opacity-40 disabled:cursor-not-allowed py-2.5"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => setShowCobrar(true)}
+              disabled={carrito.length === 0}
+              className="btn-success flex-[2] py-2.5 text-base disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Cobrar
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  )
+
   return (
     <div>
       {/* Page header */}
-      <div className="mb-5">
-        <h1 className="font-heading text-2xl font-bold text-amber-900">Punto de Venta</h1>
-        <p className="text-sm text-amber-500 mt-0.5">Registra ventas y gestiona el ticket</p>
+      <div className="mb-4 sm:mb-5">
+        <h1 className="font-heading text-xl sm:text-2xl font-bold text-amber-900">Punto de Venta</h1>
+        <p className="text-xs sm:text-sm text-amber-500 mt-0.5">Registra ventas y gestiona el ticket</p>
       </div>
 
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 lg:items-start">
         {/* ── LEFT: Product browser ── */}
         <div className="flex-1 min-w-0">
           {/* Search */}
@@ -231,7 +404,7 @@ export default function ModuloPOS({ onToast, user }) {
             <input
               value={buscar}
               onChange={e => setBuscar(e.target.value)}
-              placeholder="Buscar producto o código de barras…"
+              placeholder="Buscar producto o código…"
               className="input-field pl-10"
               aria-label="Buscar producto"
             />
@@ -256,8 +429,8 @@ export default function ModuloPOS({ onToast, user }) {
             ))}
           </div>
 
-          {/* Product grid */}
-          <div className="grid grid-cols-3 xl:grid-cols-4 gap-3">
+          {/* Product grid: 2 cols móvil, 3 md, 4 xl */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3 pb-24 lg:pb-0">
             {productosFiltrados.length === 0 ? (
               <div className="col-span-full py-20 text-center">
                 <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-amber-200" aria-hidden />
@@ -270,21 +443,21 @@ export default function ModuloPOS({ onToast, user }) {
                   <button
                     key={p.id}
                     onClick={() => agregarAlCarrito(p)}
-                    className="card p-4 flex flex-col items-center gap-2.5 cursor-pointer border-0 text-left
+                    className="card p-3 sm:p-4 flex flex-col items-center gap-2 sm:gap-2.5 cursor-pointer border-0 text-left
                                hover:shadow-md hover:-translate-y-0.5 active:scale-95
                                transition-all duration-150 group"
                     aria-label={`Agregar ${p.nombre} al carrito`}
                   >
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0
                                     transition-transform duration-150 group-hover:scale-110
                                     ${CATEGORY_COLOR[p.categoria_id] ?? 'bg-amber-100 text-amber-700'}`}>
-                      {(() => { const Icon = CATEGORY_ICON[p.categoria_id] ?? Wheat; return <Icon className="w-6 h-6" aria-hidden /> })()}
+                      {(() => { const Icon = CATEGORY_ICON[p.categoria_id] ?? Wheat; return <Icon className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden /> })()}
                     </div>
                     <div className="text-center w-full">
-                      <p className="text-sm font-semibold text-amber-900 leading-tight line-clamp-2">
+                      <p className="text-xs sm:text-sm font-semibold text-amber-900 leading-tight line-clamp-2">
                         {p.nombre}
                       </p>
-                      <p className="text-base font-bold text-amber-700 mt-1">
+                      <p className="text-sm sm:text-base font-bold text-amber-700 mt-1 tabular-nums">
                         Q {p.precio_venta.toFixed(2)}
                       </p>
                       <span className={`text-[10px] font-semibold mt-0.5 block ${
@@ -300,162 +473,59 @@ export default function ModuloPOS({ onToast, user }) {
           </div>
         </div>
 
-        {/* ── RIGHT: Cart ── */}
-        <div className="w-[340px] xl:w-[376px] flex-shrink-0">
+        {/* ── RIGHT: Cart — side panel en lg+ ── */}
+        <div className="hidden lg:block w-[340px] xl:w-[376px] flex-shrink-0">
           <div
             className="card flex flex-col overflow-hidden"
             style={{ maxHeight: 'calc(100vh - 7rem)', position: 'sticky', top: 0 }}
           >
-            {/* Cart header */}
-            <div className="px-5 py-4 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
-              <div>
-                <h2 className="font-heading font-bold text-amber-900">Ticket de venta</h2>
-                <p className="text-xs text-amber-400 mt-0.5">
-                  {totalArticulos === 0
-                    ? 'Sin productos'
-                    : `${totalArticulos} artículo${totalArticulos !== 1 ? 's' : ''}`
-                  }
-                </p>
-              </div>
-              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
-                <ShoppingCart className="w-4 h-4 text-amber-700" aria-hidden />
-              </div>
-            </div>
-
-            {/* Cart items */}
-            <div className="flex-1 overflow-y-auto px-4 py-3" aria-label="Productos en el carrito">
-              {carrito.length === 0 ? (
-                <div className="py-12 text-center">
-                  <ShoppingCart className="w-10 h-10 mx-auto mb-3 text-amber-200" aria-hidden />
-                  <p className="text-sm text-amber-300 font-medium">
-                    Selecciona productos del catálogo
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {carrito.map(item => (
-                    <div
-                      key={item.producto_id}
-                      className="flex items-center gap-2.5 py-2.5 border-b border-amber-50 last:border-0"
-                    >
-                      <ProductIcon categoriaId={item.categoria_id} size="sm" />
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-amber-900 truncate leading-tight">
-                          {item.nombre}
-                        </p>
-                        <p className="text-xs text-amber-400">Q {item.precio.toFixed(2)} c/u</p>
-                      </div>
-
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => actualizarCantidad(item.producto_id, -1)}
-                          aria-label="Disminuir cantidad"
-                          className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700
-                                     flex items-center justify-center transition-colors cursor-pointer border-0"
-                        >
-                          <Minus style={{ width: 12, height: 12 }} />
-                        </button>
-                        <span className="text-sm font-bold text-amber-900 w-6 text-center tabular-nums">
-                          {item.cantidad}
-                        </span>
-                        <button
-                          onClick={() => actualizarCantidad(item.producto_id, 1)}
-                          aria-label="Aumentar cantidad"
-                          className="w-6 h-6 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700
-                                     flex items-center justify-center transition-colors cursor-pointer border-0"
-                        >
-                          <Plus style={{ width: 12, height: 12 }} />
-                        </button>
-                      </div>
-
-                      <span className="text-sm font-bold text-amber-800 w-[54px] text-right tabular-nums">
-                        Q {(item.precio * item.cantidad).toFixed(2)}
-                      </span>
-
-                      <button
-                        onClick={() => eliminarDelCarrito(item.producto_id)}
-                        aria-label={`Eliminar ${item.nombre}`}
-                        className="w-6 h-6 rounded-lg text-amber-300 hover:bg-red-50 hover:text-red-500
-                                   flex items-center justify-center transition-all cursor-pointer border-0"
-                      >
-                        <X style={{ width: 13, height: 13 }} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Cart footer */}
-            <div className="border-t border-amber-100 bg-amber-50 px-5 py-4">
-              <div className="flex justify-between items-baseline mb-4">
-                <span className="font-heading font-bold text-amber-900 text-lg">Total</span>
-                <span className="font-heading font-bold text-amber-800 text-2xl tabular-nums">
-                  Q {total.toFixed(2)}
-                </span>
-              </div>
-
-              {showCobrar ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="label" htmlFor="monto-recibido">Efectivo recibido</label>
-                    <input
-                      id="monto-recibido"
-                      type="number"
-                      value={montoRecibido}
-                      onChange={e => setMontoRecibido(e.target.value)}
-                      placeholder="Q 0.00"
-                      autoFocus
-                      className="input-field text-right text-lg font-bold tabular-nums"
-                      min={total}
-                      step="0.01"
-                    />
-                    {cambioPreview && (
-                      <p className="text-right text-sm text-emerald-600 font-bold mt-1.5 tabular-nums">
-                        Cambio: Q {cambioPreview}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowCobrar(false)}
-                      className="btn-secondary flex-1"
-                      disabled={procesando}
-                    >
-                      Atrás
-                    </button>
-                    <button
-                      onClick={confirmarVenta}
-                      className="btn-success flex-[2] disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!cambioPreview || procesando}
-                    >
-                      {procesando ? 'Procesando…' : 'Confirmar venta'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCarrito([])}
-                    disabled={carrito.length === 0}
-                    className="btn-danger flex-1 disabled:opacity-40 disabled:cursor-not-allowed py-2.5"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => setShowCobrar(true)}
-                    disabled={carrito.length === 0}
-                    className="btn-success flex-[2] py-2.5 text-base disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Cobrar
-                  </button>
-                </div>
-              )}
-            </div>
+            {cartContent}
           </div>
         </div>
       </div>
+
+      {/* ── Cart — bottom-sheet en <lg ── */}
+      {/* Backdrop */}
+      <div
+        onClick={() => setCartOpen(false)}
+        aria-hidden
+        className={`lg:hidden fixed inset-0 bg-black/50 z-30 transition-opacity duration-300
+                    ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      />
+      {/* Sheet */}
+      <div
+        role="dialog"
+        aria-modal={cartOpen ? 'true' : undefined}
+        aria-label="Ticket de venta"
+        className={`lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white rounded-t-3xl shadow-2xl
+                    flex flex-col max-h-[90vh] transform transition-transform duration-300 ease-out
+                    ${cartOpen ? 'translate-y-0' : 'translate-y-full'}`}
+      >
+        {cartContent}
+      </div>
+
+      {/* FAB "Ver ticket" en móvil cuando hay items y sheet está cerrado */}
+      {!cartOpen && totalArticulos > 0 && (
+        <button
+          onClick={() => setCartOpen(true)}
+          className="lg:hidden fixed bottom-4 inset-x-4 z-20 bg-amber-800 hover:bg-amber-700 active:bg-amber-900
+                     text-white font-semibold rounded-2xl shadow-2xl px-5 py-3.5 flex items-center justify-between
+                     gap-3 transition-colors cursor-pointer border-0"
+          aria-label={`Ver ticket con ${totalArticulos} artículos`}
+        >
+          <span className="flex items-center gap-2.5">
+            <span className="relative">
+              <ShoppingCart className="w-5 h-5" aria-hidden />
+              <span className="absolute -top-2 -right-2 bg-amber-300 text-amber-900 text-[10px] font-bold
+                               rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 tabular-nums">
+                {totalArticulos}
+              </span>
+            </span>
+            <span className="text-sm">Ver ticket</span>
+          </span>
+          <span className="font-heading font-bold text-lg tabular-nums">Q {total.toFixed(2)}</span>
+        </button>
+      )}
     </div>
   )
 }
