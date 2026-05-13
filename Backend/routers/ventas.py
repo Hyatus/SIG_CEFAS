@@ -1,12 +1,19 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 from database import execute_query, get_connection
 from schemas import VentaCreate
 
 router = APIRouter(prefix="/api/ventas", tags=["Ventas"])
+logger = logging.getLogger("ventas")
 
 
 @router.post("", status_code=201)
 def registrar_venta(venta: VentaCreate):
+    logger.info(
+        "registrar_venta: inicio usuario_id=%s items=%s monto_recibido=%s",
+        venta.usuario_id, len(venta.items), venta.monto_recibido,
+    )
     with get_connection() as conn:
         try:
             with conn.cursor() as cur:
@@ -35,6 +42,12 @@ def registrar_venta(venta: VentaCreate):
                             ),
                         )
 
+                    logger.info(
+                        "registrar_venta: producto_id=%s nombre=%s stock_actual=%s cantidad_pedida=%s",
+                        producto["id"], producto["nombre"],
+                        producto["stock_actual"], item.cantidad,
+                    )
+
                     subtotal = float(producto["precio_venta"]) * item.cantidad
                     total += subtotal
                     items_validados.append({
@@ -58,6 +71,7 @@ def registrar_venta(venta: VentaCreate):
                     VALUES (%s, %s, %s, %s, 'completada') RETURNING id
                 """, (venta.usuario_id, total, venta.monto_recibido, cambio))
                 venta_id = cur.fetchone()["id"]
+                logger.info("registrar_venta: venta creada id=%s total=%s cambio=%s", venta_id, total, cambio)
 
                 for item in items_validados:
                     cur.execute("""
@@ -65,7 +79,32 @@ def registrar_venta(venta: VentaCreate):
                         VALUES (%s, %s, %s, %s)
                     """, (venta_id, item["producto_id"], item["cantidad"], item["precio_unitario"]))
 
+                    cur.execute("""
+                        UPDATE productos
+                        SET stock_actual = stock_actual - %s
+                        WHERE id = %s AND activo = TRUE AND stock_actual >= %s
+                        RETURNING stock_actual
+                    """, (item["cantidad"], item["producto_id"], item["cantidad"]))
+                    updated = cur.fetchone()
+                    if updated is None:
+                        logger.warning(
+                            "registrar_venta: UPDATE stock fallo venta_id=%s producto_id=%s cantidad=%s (carrera o stock cambiado)",
+                            venta_id, item["producto_id"], item["cantidad"],
+                        )
+                        raise HTTPException(
+                            status_code=409,
+                            detail=(
+                                f"Conflicto al descontar stock de '{item['nombre']}'. "
+                                "El stock cambió durante la transacción, intente de nuevo."
+                            ),
+                        )
+                    logger.info(
+                        "registrar_venta: stock descontado producto_id=%s cantidad=%s stock_resultante=%s",
+                        item["producto_id"], item["cantidad"], updated["stock_actual"],
+                    )
+
                 conn.commit()
+                logger.info("registrar_venta: commit OK venta_id=%s", venta_id)
                 return {
                     "id": venta_id,
                     "total": total,
@@ -77,6 +116,7 @@ def registrar_venta(venta: VentaCreate):
         except HTTPException:
             raise
         except Exception as e:
+            logger.exception("registrar_venta: error inesperado")
             raise HTTPException(status_code=500, detail=str(e))
 
 

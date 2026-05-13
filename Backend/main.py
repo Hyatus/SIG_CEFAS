@@ -2,9 +2,15 @@
 SIG-BAKERY: API REST — punto de entrada principal.
 Levanta la app, registra los routers y arranca uvicorn en modo dev.
 """
+import logging
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 from routers import auth, catalogos, recetas, productos, ventas
 
