@@ -1,9 +1,9 @@
 """
 SIG-BAKERY: Modelos Pydantic de entrada y salida por dominio.
 """
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, model_validator
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 
 # ============================================================
@@ -99,3 +99,20 @@ class VentaResponse(BaseModel):
     cambio: float
     estado: str
     detalle: Optional[list[dict]] = None
+
+
+# ============================================================
+# LOTES DE PRODUCCIÓN
+# ============================================================
+
+class LoteCreate(BaseModel):
+    producto_id: int
+    cantidad: int = Field(gt=0)
+    fecha_produccion: date = Field(default_factory=date.today)
+    fecha_vencimiento: date
+
+    @model_validator(mode="after")
+    def validar_fechas(self):
+        if self.fecha_vencimiento < self.fecha_produccion:
+            raise ValueError("La fecha de vencimiento debe ser igual o posterior a la fecha de producción")
+        return self

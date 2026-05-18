@@ -30,4 +30,14 @@ export const api = {
   borrarReceta:  (id)               => request(`/api/recetas/${id}`,   { method: 'DELETE' }),
 
   registrarVenta: (payload)         => request('/api/ventas',          { method: 'POST',   body: payload }),
+
+  lotes:               (params = {}) => {
+    const qs = new URLSearchParams()
+    if (params.productoId) qs.set('producto_id', params.productoId)
+    if (params.estado)     qs.set('estado', params.estado)
+    return request(`/api/lotes${qs.size ? '?' + qs : ''}`)
+  },
+  lotesProximosAVencer: (dias = 3)  => request(`/api/lotes/proximos-a-vencer?dias=${dias}`),
+  registrarLote:        (payload)   => request('/api/lotes',                  { method: 'POST', body: payload }),
+  darDeBajaLote:        (id)        => request(`/api/lotes/${id}/dar-de-baja`, { method: 'POST' }),
 }

@@ -12,7 +12,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-from routers import auth, catalogos, recetas, productos, ventas
+from routers import auth, catalogos, recetas, productos, ventas, lotes
 
 app = FastAPI(
     title="SIG-BAKERY API",
@@ -42,6 +42,7 @@ app.include_router(catalogos.router)
 app.include_router(recetas.router)
 app.include_router(productos.router)
 app.include_router(ventas.router)
+app.include_router(lotes.router)
 
 
 @app.get("/api/health", tags=["Sistema"])

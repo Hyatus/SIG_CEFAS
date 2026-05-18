@@ -21,7 +21,8 @@ Backend/
     ├── catalogos.py     # GET  /api/categorias, /unidades-medida, /insumos
     ├── recetas.py       # CRUD /api/recetas
     ├── productos.py     # GET  /api/productos
-    └── ventas.py        # CRUD /api/ventas
+    ├── ventas.py        # CRUD /api/ventas  (descuento de stock FEFO)
+    └── lotes.py         # CRUD /api/lotes   (rotación de inventario)
 ```
 
 ---
@@ -30,7 +31,7 @@ Backend/
 
 | Herramienta | Versión mínima |
 |-------------|----------------|
-| Python      | 3.11           |
+| Python      | 3.9            |
 | PostgreSQL  | 14             |
 
 ---
@@ -41,8 +42,9 @@ Backend/
 
 ```bash
 cd Backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -67,34 +69,79 @@ cp .env.example .env
 # Crea la base de datos
 psql -U postgres -c "CREATE DATABASE sig_bakery;"
 
-# Aplica el schema y los datos semilla
+# Aplica el schema completo (tablas + datos semilla)
 psql -U postgres -d sig_bakery -f schema.sql
 ```
 
-También puedes automatizar este proceso (incluyendo reseteo de contraseña) con:
+También puedes automatizar este proceso con:
 
 ```bash
 chmod +x scripts/configure_postgres.sh
 ./scripts/configure_postgres.sh --yes
 ```
 
-Opcionalmente puedes cambiar usuario/clave/base:
-
-```bash
-./scripts/configure_postgres.sh --yes --db-user postgres --db-password postgres --db-name sig_bakery
-```
+> **Nota:** si la base ya existía y solo necesitas agregar la tabla de lotes,
+> ejecuta únicamente el bloque `CREATE TABLE IF NOT EXISTS lotes_produccion ...`
+> del archivo `schema.sql`.
 
 ### 4. Arrancar el servidor
 
 ```bash
-python main.py
+# Desde el directorio Backend/ (con el venv activo o usando la ruta completa)
+.venv/bin/uvicorn main:app --host localhost --port 8000 --reload --reload-dir routers
 # → http://localhost:8000
 ```
 
-O directamente con uvicorn:
+---
+
+## Solución de errores comunes
+
+### Error: `source: no such file or directory: .../.venv/bin/activate`
+
+El entorno virtual no existe o quedó incompleto.
 
 ```bash
-uvicorn main:app --reload --port 8000
+cd /Users/hyatus/Documents/SIG_CEFAS
+rm -rf Backend/.venv
+python3 -m venv Backend/.venv
+source Backend/.venv/bin/activate
+```
+
+### Error: `ModuleNotFoundError: No module named 'fastapi'`
+
+La dependencia no está instalada en el entorno virtual activo.
+
+```bash
+cd /Users/hyatus/Documents/SIG_CEFAS
+source Backend/.venv/bin/activate
+pip install --upgrade pip
+pip install -r Backend/requirements.txt
+```
+
+Verificación rápida:
+
+```bash
+python -c "import fastapi; print(fastapi.__version__)"
+```
+
+### Error: `[Errno 48] Address already in use`
+
+El puerto `8000` ya está siendo usado por otro proceso.
+
+```bash
+lsof -ti :8000 | xargs kill -9
+cd /Users/hyatus/Documents/SIG_CEFAS/Backend
+source .venv/bin/activate
+python main.py
+```
+
+### Nota útil
+
+Si al ejecutar `source` copias/pegas el comando con un espacio inicial, puede fallar en algunas shells.
+Ejemplo correcto:
+
+```bash
+source /Users/hyatus/Documents/SIG_CEFAS/Backend/.venv/bin/activate
 ```
 
 ---
@@ -158,6 +205,18 @@ uvicorn main:app --reload --port 8000
 | POST   | `/api/ventas`      | Registra venta, valida stock y calcula cambio     |
 | GET    | `/api/ventas`      | Lista ventas recientes (`limit`, `offset`)        |
 | GET    | `/api/ventas/{id}` | Obtiene venta con detalle                         |
+
+### Lotes de producción (rotación FEFO)
+
+| Método | Ruta                           | Descripción                                        |
+|--------|--------------------------------|----------------------------------------------------|
+| POST   | `/api/lotes`                   | Registra lote de producción y aumenta stock        |
+| GET    | `/api/lotes`                   | Lista lotes (filtros: `producto_id`, `estado`)     |
+| GET    | `/api/lotes/proximos-a-vencer` | Lotes activos que vencen en los próximos N días    |
+| POST   | `/api/lotes/{id}/dar-de-baja`  | Descarta lote vencido y ajusta stock               |
+
+**Estrategia FEFO:** al registrar una venta, el stock se descuenta automáticamente
+del lote con fecha de vencimiento más próxima, minimizando el desperdicio de pan.
 
 ### Sistema
 

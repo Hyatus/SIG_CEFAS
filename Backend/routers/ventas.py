@@ -8,6 +8,40 @@ router = APIRouter(prefix="/api/ventas", tags=["Ventas"])
 logger = logging.getLogger("ventas")
 
 
+def _consumir_fefo(cur, producto_id: int, cantidad: int) -> None:
+    """Descuenta `cantidad` unidades de los lotes activos del producto, empezando
+    por el que vence más pronto (FEFO). Si no hay lotes registrados para el
+    producto, no hace nada (el descuento se refleja solo en productos.stock_actual)."""
+    cur.execute("""
+        SELECT id, cantidad_disponible
+        FROM lotes_produccion
+        WHERE producto_id = %s AND estado = 'activo' AND cantidad_disponible > 0
+        ORDER BY fecha_vencimiento ASC, id ASC
+        FOR UPDATE
+    """, (producto_id,))
+    lotes = cur.fetchall()
+    if not lotes:
+        return
+
+    restante = cantidad
+    for lote in lotes:
+        if restante <= 0:
+            break
+        a_descontar = min(lote["cantidad_disponible"], restante)
+        nueva_cantidad = lote["cantidad_disponible"] - a_descontar
+        nuevo_estado = "agotado" if nueva_cantidad == 0 else "activo"
+        cur.execute("""
+            UPDATE lotes_produccion
+            SET cantidad_disponible = %s, estado = %s
+            WHERE id = %s
+        """, (nueva_cantidad, nuevo_estado, lote["id"]))
+        restante -= a_descontar
+        logger.info(
+            "FEFO: lote_id=%s producto_id=%s descontado=%s disponible_restante=%s estado=%s",
+            lote["id"], producto_id, a_descontar, nueva_cantidad, nuevo_estado,
+        )
+
+
 @router.post("", status_code=201)
 def registrar_venta(venta: VentaCreate):
     logger.info(
@@ -78,6 +112,8 @@ def registrar_venta(venta: VentaCreate):
                         INSERT INTO venta_detalle (venta_id, producto_id, cantidad, precio_unitario)
                         VALUES (%s, %s, %s, %s)
                     """, (venta_id, item["producto_id"], item["cantidad"], item["precio_unitario"]))
+
+                    _consumir_fefo(cur, item["producto_id"], item["cantidad"])
 
                     cur.execute("""
                         UPDATE productos

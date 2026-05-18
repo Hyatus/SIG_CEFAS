@@ -5,6 +5,7 @@ import Toast from './components/Toast'
 import Footer from './components/Footer'
 import ModuloPOS from './modules/pos/ModuloPOS'
 import ModuloRecetas from './modules/recetas/ModuloRecetas'
+import ModuloProduccion from './modules/produccion/ModuloProduccion'
 import LoginPage from './modules/login/LoginPage'
 
 function readStoredUser() {
@@ -79,7 +80,7 @@ export default function App() {
                 SIG-BAKERY
               </span>
               <span className="text-amber-400 text-[10px] block leading-tight truncate">
-                {modulo === 'pos' ? 'Punto de Venta' : 'Recetario'}
+                {{ pos: 'Punto de Venta', recetas: 'Recetario', produccion: 'Producción' }[modulo] ?? modulo}
               </span>
             </div>
           </div>
@@ -87,10 +88,9 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto">
           <div className="p-3 sm:p-4 lg:p-6 w-full max-w-[1200px] mx-auto lg:mx-0">
-            {modulo === 'pos'
-              ? <ModuloPOS onToast={showToast} user={user} />
-              : <ModuloRecetas onToast={showToast} />
-            }
+            {modulo === 'pos'        && <ModuloPOS onToast={showToast} user={user} />}
+            {modulo === 'recetas'    && <ModuloRecetas onToast={showToast} />}
+            {modulo === 'produccion' && <ModuloProduccion onToast={showToast} />}
             <Footer />
           </div>
         </main>

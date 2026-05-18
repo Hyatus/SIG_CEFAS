@@ -1,6 +1,6 @@
 -- ============================================================
 -- SIG-BAKERY: Schema PostgreSQL
--- Módulos: Recetas + Punto de Venta (Carrito)
+-- Módulos: Recetas + Punto de Venta (Carrito) + Lotes de Producción (FEFO)
 -- Moneda: Quetzales (Q)
 -- ============================================================
 
@@ -129,6 +129,26 @@ CREATE INDEX idx_venta_detalle_venta ON venta_detalle (venta_id);
 -- Backend/routers/ventas.py (UPDATE con RETURNING dentro de la misma
 -- transacción que el INSERT en venta_detalle). El CHECK constraint
 -- stock_actual >= 0 de la tabla productos garantiza la integridad.
+
+-- ============================================================
+-- LOTES DE PRODUCCIÓN (rotación FEFO)
+-- ============================================================
+
+CREATE TABLE lotes_produccion (
+    id                  SERIAL PRIMARY KEY,
+    producto_id         INTEGER NOT NULL REFERENCES productos(id),
+    fecha_produccion    DATE NOT NULL DEFAULT CURRENT_DATE,
+    fecha_vencimiento   DATE NOT NULL,
+    cantidad_inicial    INTEGER NOT NULL CHECK (cantidad_inicial > 0),
+    cantidad_disponible INTEGER NOT NULL CHECK (cantidad_disponible >= 0),
+    estado              VARCHAR(20) NOT NULL DEFAULT 'activo'
+                            CHECK (estado IN ('activo', 'agotado', 'vencido', 'dado_de_baja')),
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_vencimiento CHECK (fecha_vencimiento >= fecha_produccion)
+);
+
+CREATE INDEX idx_lotes_fefo ON lotes_produccion (producto_id, fecha_vencimiento)
+    WHERE estado = 'activo';
 
 -- ============================================================
 -- FUNCIÓN: calcular costo total de una receta

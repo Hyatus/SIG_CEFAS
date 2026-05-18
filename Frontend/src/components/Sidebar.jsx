@@ -1,8 +1,9 @@
-import { ShoppingCart, BookOpen, ChefHat, LogOut, X } from 'lucide-react'
+import { ShoppingCart, BookOpen, ChefHat, LogOut, X, Package } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { id: 'pos',     label: 'Punto de Venta', icon: ShoppingCart, desc: '' },
-  { id: 'recetas', label: 'Recetario',       icon: BookOpen,     desc: '' },
+  { id: 'pos',        label: 'Punto de Venta', icon: ShoppingCart, roles: null },
+  { id: 'recetas',    label: 'Recetario',       icon: BookOpen,     roles: null },
+  { id: 'produccion', label: 'Producción',      icon: Package,      roles: ['admin', 'panadero'] },
 ]
 
 const ROLE_LABEL = {
@@ -68,7 +69,7 @@ export default function Sidebar({ modulo, onModulo, user, onLogout, open, onClos
           <p className="text-amber-600/70 text-[10px] font-bold uppercase tracking-widest px-3 mb-3">
             Módulos
           </p>
-          {NAV_ITEMS.map(({ id, label, icon: Icon, desc }) => {
+          {NAV_ITEMS.filter(item => !item.roles || item.roles.includes(user?.rol)).map(({ id, label, icon: Icon }) => {
             const active = modulo === id
             return (
               <button
@@ -91,11 +92,6 @@ export default function Sidebar({ modulo, onModulo, user, onLogout, open, onClos
                 />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-semibold block leading-tight">{label}</span>
-                  <span className={`text-[10px] font-medium ${
-                    active ? 'text-amber-300' : 'text-amber-600 group-hover:text-amber-400'
-                  }`}>
-                    {desc}
-                  </span>
                 </div>
                 {active && (
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-300 flex-shrink-0" />

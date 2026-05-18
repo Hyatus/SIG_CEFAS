@@ -3,13 +3,14 @@ SIG-BAKERY: Capa de acceso a datos con pool de conexiones PostgreSQL.
 """
 import os
 from contextlib import contextmanager
+from typing import Optional
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from dotenv import load_dotenv
 
 load_dotenv()
 
-_pool: ConnectionPool | None = None
+_pool: Optional[ConnectionPool] = None
 
 
 def _build_conninfo() -> str:
